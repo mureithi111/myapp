@@ -1,12 +1,10 @@
 {
   "family": "myapp-task",
+  "executionRoleArn": "arn:aws:iam::345549356290:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
-  "requiresCompatibilities": [
-    "FARGATE"
-  ],
+  "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
   "memory": "512",
-  "executionRoleArn": "arn:aws:iam::345549356290::role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "myapp-container",
@@ -18,27 +16,6 @@
           "protocol": "tcp"
         }
       ],
-      "environment": [
-        {
-          "name": "PORT",
-          "value": "3001"
-        },
-        {
-          "name": "APP_VERSION",
-          "value": "deployed"
-        }
-      ],
-      
-      "healthCheck": {
-        "command": [
-          "CMD-SHELL",
-          "node -e \"require('http').get('http://127.0.0.1:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""
-        ],
-        "interval": 30,
-        "timeout": 5,
-        "retries": 3,
-        "startPeriod": 10
-      },
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
@@ -50,4 +27,3 @@
     }
   ]
 }
-

@@ -1,45 +1,52 @@
 version: 0.2
 
-env:
-  variables:
-    ECR_REPOSITORY: "myapp-repo"
-    CONTAINER_NAME: "myapp-container"
-
 phases:
-  install:
-    runtime-versions:
-      nodejs: 22
-    commands:
-    - cd "$CODEBUILD_SRC_DIR"
-    - cd src && npm install && cd ..
-  pre_build:
-    commands:
-    - echo "Logging in to Amazon ECR"
-    - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-    - REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPOSITORY}"
-    - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
-    - IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
-    - if [ -z "$IMAGE_TAG" ]; then IMAGE_TAG="manual-${CODEBUILD_BUILD_NUMBER}"; fi
   build:
     commands:
-    - echo "Running unit tests"
-    - cd "$CODEBUILD_SRC_DIR/src" && npm test
-    - cd "$CODEBUILD_SRC_DIR"
-    - echo "Building Docker image"
-    - docker build --pull -t "${REPOSITORY_URI}:${IMAGE_TAG}" .
-    - docker tag "${REPOSITORY_URI}:${IMAGE_TAG}" "${REPOSITORY_URI}:latest"
-  post_build:
-    commands:
-    - echo "Pushing image to ECR"
-    - docker push "${REPOSITORY_URI}:${IMAGE_TAG}"
-    - docker push "${REPOSITORY_URI}:latest"
-    - printf '{"ImageURI":"%s"}\n' "${REPOSITORY_URI}:${IMAGE_TAG}" > imageDetail.json
-    - echo "Image detail file:"
-    - cat imageDetail.json
+      - |
+        set -eu
+
+        REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+        IMAGE_TAG="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-12)"
+        if [ -z "$IMAGE_TAG" ]; then IMAGE_TAG="$CODEBUILD_BUILD_NUMBER"; fi
+        IMAGE_URI="${REGISTRY}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+
+        echo "Logging in to ECR..."
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
+          docker login --username AWS --password-stdin "$REGISTRY"
+
+        echo "Building ${IMAGE_URI}"
+        docker build -t "$IMAGE_URI" .
+
+        echo "Starting container for health test..."
+        docker run -d --name myapp-ci-test -p 3001:3001 "$IMAGE_URI"
+
+        HEALTHY=0
+        for i in $(seq 1 30); do
+          if curl --fail --silent http://127.0.0.1:3001/health; then
+            HEALTHY=1
+            echo
+            echo "Application health test passed."
+            break
+          fi
+          sleep 2
+        done
+
+        if [ "$HEALTHY" -ne 1 ]; then
+          docker logs myapp-ci-test || true
+          docker rm -f myapp-ci-test || true
+          echo "ERROR: Application health test failed."
+          exit 1
+        fi
+
+        docker rm -f myapp-ci-test
+
+        echo "Pushing image..."
+        docker push "$IMAGE_URI"
+
+        printf '{"ImageURI":"%s"}\n' "$IMAGE_URI" > imageDetail.json
+        cat imageDetail.json
 
 artifacts:
   files:
-  - appspec.yml
-  - taskdef.json
-  - imageDetail.json
-  discard-paths: yes
+    - imageDetail.json
