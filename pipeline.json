@@ -26,7 +26,11 @@
               "OutputArtifactFormat": "CODE_ZIP",
               "DetectChanges": "true"
             },
-            "outputArtifacts": [{"name": "SourceArtifact"}],
+            "outputArtifacts": [
+              {
+                "name": "SourceArtifact"
+              }
+            ],
             "inputArtifacts": [],
             "region": "us-east-1",
             "namespace": "SourceVariables"
@@ -48,8 +52,16 @@
             "configuration": {
               "ProjectName": "myapp-build"
             },
-            "inputArtifacts": [{"name": "SourceArtifact"}],
-            "outputArtifacts": [{"name": "BuildArtifact"}],
+            "inputArtifacts": [
+              {
+                "name": "SourceArtifact"
+              }
+            ],
+            "outputArtifacts": [
+              {
+                "name": "BuildArtifact"
+              }
+            ],
             "region": "us-east-1"
           }
         ]
@@ -94,11 +106,15 @@
               "AppSpecTemplateArtifact": "SourceArtifact",
               "AppSpecTemplatePath": "appspec.yml",
               "Image1ArtifactName": "BuildArtifact",
-              "Image1ContainerName": "myapp-container"
+              "Image1ContainerName": "IMAGE1_NAME"
             },
             "inputArtifacts": [
-              {"name": "SourceArtifact"},
-              {"name": "BuildArtifact"}
+              {
+                "name": "SourceArtifact"
+              },
+              {
+                "name": "BuildArtifact"
+              }
             ],
             "outputArtifacts": [],
             "region": "us-east-1"
