@@ -1,24 +1,42 @@
 version: 0.2
 
 phases:
+  pre_build:
+    commands:
+      - |
+        set -eu
+
+        echo "Logging in to Amazon ECR..."
+        REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
+          docker login --username AWS --password-stdin "$REGISTRY"
+
+        # Include the CodeBuild run number so rerunning the same commit
+        # never attempts to overwrite an immutable ECR tag.
+        COMMIT_SHORT="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-12)"
+        if [ -z "$COMMIT_SHORT" ]; then
+          COMMIT_SHORT="unknown"
+        fi
+
+        IMAGE_TAG="${COMMIT_SHORT}-${CODEBUILD_BUILD_NUMBER}"
+        IMAGE_URI="${REGISTRY}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+
+        echo "IMAGE_URI=${IMAGE_URI}"
+        printf '%s' "$IMAGE_URI" > /tmp/myapp-image-uri
+
   build:
     commands:
       - |
         set -eu
 
-        REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
-        IMAGE_TAG="$(printf '%s' "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-12)"
-        if [ -z "$IMAGE_TAG" ]; then IMAGE_TAG="$CODEBUILD_BUILD_NUMBER"; fi
-        IMAGE_URI="${REGISTRY}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+        IMAGE_URI="$(cat /tmp/myapp-image-uri)"
 
-        echo "Logging in to ECR..."
-        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
-          docker login --username AWS --password-stdin "$REGISTRY"
-
-        echo "Building ${IMAGE_URI}"
-        docker build -t "$IMAGE_URI" .
+        echo "Building application image: ${IMAGE_URI}"
+        docker build --pull -t "$IMAGE_URI" .
 
         echo "Starting container for health test..."
+        docker rm -f myapp-ci-test >/dev/null 2>&1 || true
         docker run -d --name myapp-ci-test -p 3001:3001 "$IMAGE_URI"
 
         HEALTHY=0
@@ -33,19 +51,27 @@ phases:
         done
 
         if [ "$HEALTHY" -ne 1 ]; then
+          echo "ERROR: Application health test failed."
           docker logs myapp-ci-test || true
           docker rm -f myapp-ci-test || true
-          echo "ERROR: Application health test failed."
           exit 1
         fi
 
         docker rm -f myapp-ci-test
 
-        echo "Pushing image..."
+        # Create the deployment artifact before pushing the image.
+        # CodeDeployToECS uses this file to obtain the image URI.
+        printf '{"ImageURI":"%s"}\n' "$IMAGE_URI" > imageDetail.json
+
+        echo "Pushing unique image tag to ECR..."
         docker push "$IMAGE_URI"
 
-        printf '{"ImageURI":"%s"}\n' "$IMAGE_URI" > imageDetail.json
+        echo "Image pushed successfully:"
         cat imageDetail.json
+
+  post_build:
+    commands:
+      - echo "Build, local container health test, and ECR push completed."
 
 artifacts:
   files:
