@@ -45,3 +45,70 @@ docker run --rm -p 3001:3001 myapp-local
 ```
 Visit `http://localhost:3001/` and `http://localhost:3001/health`.
 
+---
+
+## Pipeline diagram showing your final pipeline flow.
+
+![Pipeline diagram](evidence/pipeline-diagram.jpeg)
+
+---
+
+## Screenshots
+
+### 1. CodeBuild builds and pushes Docker image to ECR.
+
+![CodeBuild builds and pushes Docker image to ECR](evidence/capstone-288-build.png)
+
+![CodeBuild builds and pushes Docker image to ECR](evidence/capstone-244-build-image.png)
+
+---
+
+### 2. CodeDeploy updates ECS task definition and triggers ECS deployment.
+
+![ECS deployment](evidence/capstone-299-1-deploy.png)
+
+![ECS deployment](evidence/capstone-299-2-deploy.png)
+
+![ECS deployment](evidence/capstone-299-3-deploy.png)
+
+---
+
+### 3. Manual approval before production.
+
+![Manual approval before production](evidence/capstone-177.png)
+
+![Manual approval before production](evidence/capstone-188.png)
+
+![Manual approval before production](evidence/capstone-199.png)
+
+![Manual approval before production](evidence/capstone-277-pipeline-execution.png)
+
+![Manual approval before production](evidence/capstone-266-pipeline-logs.png)
+
+---
+
+### 4. View of the website image pushed to production
+
+![website image pushed to production](evidence/capstone-144.png)
+
+![website image pushed to production](evidence/capstone-155.png)
+
+---
+
+### 5. View of the website image pushed running on localhost
+
+![website image pushed running on localhost](evidence/capstone-111.png)
+
+![website image pushed running on localhost](evidence/capstone-122.png)
+
+![website image pushed running on localhost](evidence/capstone-133.png)
+
+---
+
+### 5. Alert sent to email after high cpu usage threshold
+
+![Alert sent to email](evidence/capstone-222.png)
+
+---
+
+
